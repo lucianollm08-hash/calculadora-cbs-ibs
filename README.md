@@ -47,7 +47,7 @@ O DAS usa as tabelas dos Anexos I a V da LC 123/2006 (redação da LC 155/2016) 
 
 - Imposto Seletivo, monofasia de combustíveis, alíquotas fixas/setoriais específicas e classificações que exigem dados extras da operação.
   Elas aparecem na lista com "(não calculada)" e o motivo.
-- Para datas a partir de 2027 ainda não há alíquota oficial de referência: a página pede as alíquotas para simular.
+- Para datas a partir de 2027 ainda não há alíquota oficial de referência. A página preenche uma estimativa da transição para o ano (CBS menos 0,1 ponto e IBS de 0,1% em 2027 e 2028; IBS a 10%, 20%, 30% e 40% de 2029 a 2032; plenos em 2033), editável, e o comparativo mostra a carga do ano com o ICMS/ISS reduzido (90% a 60%), PIS/Cofins extintos e IPI a zero. Premissas em `dados/impostos-atuais.json` → `transicao`.
 
 ## Atualização automática
 
