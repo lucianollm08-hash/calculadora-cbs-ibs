@@ -43,6 +43,8 @@
   .caixa.erro { background: var(--erro-claro); color: var(--erro); }
   button.calcular { margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 8px; background: var(--destaque); color: var(--card); font: 600 1rem system-ui, sans-serif; cursor: pointer; }
   button.calcular:disabled { opacity: .6; cursor: wait; }
+  button.limpar { margin-top: 8px; width: 100%; padding: 10px; border: 1px solid var(--borda); border-radius: 8px; background: var(--card); color: var(--texto); font: 600 .95rem system-ui, sans-serif; cursor: pointer; }
+  button.limpar:hover { border-color: var(--destaque); color: var(--destaque); }
   .vazio { color: var(--suave); text-align: center; padding: 40px 10px; }
   .total { background: var(--destaque-claro); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
   .total .rotulo { font-size: .85rem; color: var(--suave); }
@@ -225,6 +227,7 @@
       </div>
 
       <button class="calcular" id="btn" type="submit" disabled>Carregando tabelas…</button>
+      <button class="limpar" id="btnLimpar" type="button">↺ Nova consulta</button>
       <div id="erroForm"></div>
     </form>
 
@@ -1007,6 +1010,16 @@ $('classTrib').addEventListener('change', mostrarClasse);
 $('uf').addEventListener('change', preencherMunicipios);
 $('municipio').addEventListener('change', mostrarLocal);
 $('data').addEventListener('change', () => { verificarReferencia(); consultarCodigo(); });
+// Nova consulta: limpa código, classificação, valor e resultado; mantém tipo, data, local e a nota com vários itens
+$('btnLimpar').addEventListener('click', () => {
+  $('codigo').value = ''; $('valor').value = ''; $('cst').value = ''; $('soValidas').checked = false;
+  $('erroForm').innerHTML = '';
+  $('resultado').innerHTML = '<div class="vazio">Preencha os dados e clique em <b>Calcular</b>.</div>';
+  ctxComp = null; ultimoCalculo = null; renderNota();
+  consultarCodigo();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('codigo').focus({ preventScroll: true });
+});
 // ---------- Nota com vários itens e apuração com créditos (regime regular) ----------
 let ultimoCalculo = null;
 let nota = { itens: [], creditoCbs: '', creditoIbs: '' };
