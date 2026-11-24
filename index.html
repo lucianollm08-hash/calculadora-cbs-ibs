@@ -216,9 +216,9 @@
       <div class="selecionada" id="selLocal"></div>
 
       <div id="blocoAliquotas" hidden>
-        <div class="caixa aviso">Ainda não há alíquota oficial de referência para essa data. A CBS vem preenchida com <b>11,3%, estimativa do TCU</b> para 2027, e o IBS com 0,1% (0,05% estadual + 0,05% municipal) da transição de 2027 e 2028. Ajuste se quiser simular outros valores (em %).</div>
+        <div class="caixa aviso" id="avisoAliquotas">Ainda não há alíquota oficial de referência para essa data. Ajuste se quiser simular outros valores (em %).</div>
         <div class="linha3">
-          <div><label for="aCbs">CBS</label><input id="aCbs" inputmode="decimal" value="11,3"></div>
+          <div><label for="aCbs">CBS</label><input id="aCbs" inputmode="decimal" value="8,7"></div>
           <div><label for="aUf">IBS estadual</label><input id="aUf" inputmode="decimal" value="0,05"></div>
           <div><label for="aMun">IBS municipal</label><input id="aMun" inputmode="decimal" value="0,05"></div>
         </div>
@@ -582,8 +582,40 @@ function consultarCodigo() {
   renderClasses();
 }
 
+// Alíquotas estimadas da transição para o ano (2027 a 2033), a partir de dados/impostos-atuais.json
+function transicaoAno(ano) {
+  const tr = dados['impostos-atuais'].transicao;
+  const a = tr && tr.anos[String(Math.min(Math.max(ano, 2027), 2033))];
+  if (!a) return null;
+  const r2 = (x) => Math.round(x * 10000) / 10000;
+  const inicial = a.ibsFracao === 0; // 2027 e 2028: IBS simbólico e CBS reduzida em 0,1 ponto
+  const pl = aliqPlena(); // mesmas alíquotas plenas do comparativo
+  const ibs = inicial ? 0.1 : pl.ibs * a.ibsFracao;
+  return {
+    ano, icmsIss: a.icmsIss, ibsFracao: a.ibsFracao,
+    cbs: r2(inicial ? pl.cbs - 0.1 : pl.cbs),
+    ibsUf: r2(inicial ? 0.05 : ibs * tr.partilhaUf),
+    ibsMun: r2(inicial ? 0.05 : ibs * (1 - tr.partilhaUf)),
+  };
+}
+
+let anoPreenchido = null;
 function verificarReferencia() {
-  $('blocoAliquotas').hidden = Calc.temReferencia(dados.meta, $('data').value);
+  const temRef = Calc.temReferencia(dados.meta, $('data').value);
+  $('blocoAliquotas').hidden = temRef;
+  if (temRef) return;
+  const ano = Number($('data').value.slice(0, 4));
+  const t = transicaoAno(ano);
+  if (!t || ano === anoPreenchido) return;
+  anoPreenchido = ano;
+  const br = (x) => String(x).replace('.', ',');
+  $('aCbs').value = br(t.cbs); $('aUf').value = br(t.ibsUf); $('aMun').value = br(t.ibsMun);
+  const fase = t.ibsFracao === 0
+    ? `em ${t.ano}, a CBS integral (${pct(aliqPlena().cbs)} menos 0,1 ponto) e o IBS simbólico de 0,1%`
+    : t.ibsFracao < 1
+      ? `em ${t.ano}, a CBS integral e o IBS a ${Math.round(t.ibsFracao * 100)}% da referência de ${pct(aliqPlena().ibs)}, enquanto o ICMS e o ISS caem para ${Math.round(t.icmsIss * 100)}%`
+      : `a partir de 2033, a CBS e o IBS plenos (${pct(aliqPlena().cbs)} + ${pct(aliqPlena().ibs)})`;
+  $('avisoAliquotas').innerHTML = `Ainda não há alíquota oficial de referência para essa data. Os campos vêm preenchidos com a <b>estimativa da transição</b>: ${fase}. O IBS é dividido meio a meio entre estado e município. Para simular a CBS de 11,3% estimada pelo TCU, digite no campo. Ajuste se quiser simular outros valores (em %).`;
 }
 
 function calcular(ev) {
@@ -638,7 +670,7 @@ function calcular(ev) {
       <div class="rotulo">Carga efetiva ${pct((r.total / entrada.valor * 100).toFixed(4))} · valor com tributos ${brl(entrada.valor + r.total)}</div>
       <div class="totais" id="totais"></div>
     </div>
-    ${r.simulado ? '<div class="caixa aviso"><b>Estimativa:</b> ainda não há alíquota oficial para essa data. O cálculo usa as alíquotas do quadro acima (CBS de 11,3% estimada pelo TCU, se você não alterou).</div>' : ''}
+    ${r.simulado ? '<div class="caixa aviso"><b>Estimativa:</b> ainda não há alíquota oficial para essa data. O cálculo usa as alíquotas do quadro acima, estimadas para a transição a partir das alíquotas plenas.</div>' : ''}
     ${diferido ? `<div class="caixa aviso">Operação com diferimento: ${brl(diferido)} de tributo calculado fica diferido e não é cobrado nesta etapa.</div>` : ''}
     ${r.base !== entrada.valor ? `<div class="caixa aviso">Base de cálculo ajustada pela classificação: ${brl(r.base)}.</div>` : ''}
     <table>
@@ -687,7 +719,7 @@ function iniciarComparativo(entrada, classe, r) {
         <option value="naoCumulativo">Real · 9,25%</option>
         <option value="cumulativo">Presumido · 3,65%</option>
         <option value="zero">Zero / isento</option>
-      </select></div>
+      </select><div class="dica">"hoje", antes da reforma</div></div>
       <div><label for="cPlenoCbs">CBS plena (%)</label><input id="cPlenoCbs" inputmode="decimal" value="${String(aliqPlena().cbs).replace('.', ',')}"><div class="dica">LC 214: 8,8% · TCU: 11,3%</div></div>
       <div><label for="cPlenoIbs">IBS pleno (%)</label><input id="cPlenoIbs" inputmode="decimal" value="${String(aliqPlena().ibs).replace('.', ',')}"><div class="dica">LC 214: 17,7% · a partir de 2033</div></div>
     </div>
@@ -717,7 +749,7 @@ function atualizarTotais() {
   const ano = entrada.data.slice(0, 4);
   const linha = (rotulo, valor, sub) => `<div class="tot-linha"><span>${rotulo}${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="tot-carga">${valor === null ? '—' : pct((valor / v * 100).toFixed(2))}</span><b>${valor === null ? '—' : brl(valor)}</b></div>`;
   el.innerHTML = [
-    linha(`CBS + IBS em ${ano}`, r.total, r.simulado ? 'estimativa (CBS do TCU), o mesmo de cima' : 'cálculo oficial, o mesmo de cima'),
+    linha(`CBS + IBS em ${ano}`, r.total, r.simulado ? 'estimativa da transição, o mesmo de cima' : 'cálculo oficial, o mesmo de cima'),
     linha('CBS + IBS estimado', t.plena ?? null, `estimativa plena (${aliqPlena().nome}): CBS ${pct(aliqPlena().cbs)} + IBS ${pct(aliqPlena().ibs)}`),
     linha('Impostos atuais estimados', t.atual ?? null, t.atualNome),
     linha('Simples Nacional estimado', t.sn ?? null, t.snNome || 'informe a receita no comparativo do Simples'),
@@ -770,6 +802,14 @@ function atualizarComparativo() {
 
   // Reforma: o cálculo do ano da operação e a estimativa com as alíquotas plenas
   const cargaAno = r.total / valor * 100;
+  // Ano de transição (2027 a 2032): ICMS/ISS reduzidos + CBS/IBS do ano; PIS/Cofins extintos e IPI a zero
+  const tAno = transicaoAno(Number(entrada.data.slice(0, 4)));
+  const transicao = tAno && tAno.icmsIss > 0 && Number(entrada.data.slice(0, 4)) >= 2027 ? (() => {
+    const [nome, aliq, v] = atuais[0];
+    const vIcmsIss = v * tAno.icmsIss;
+    const total = vIcmsIss + r.total;
+    return { nome: nome.split(' ')[0], aliq: aliq * tAno.icmsIss, vIcmsIss, total, carga: total / valor * 100, fator: tAno.icmsIss };
+  })() : null;
   const rp = aliqPlena();
   const plena = cbsIbsPleno(classe, valor).total;
   const cargaPlena = plena / valor * 100;
@@ -787,12 +827,15 @@ function atualizarComparativo() {
       <tbody>
         <tr class="grupo"><td>Impostos atuais (estimativa)</td><td>${pct(cargaAtual.toFixed(2))}</td><td>${brl(totalAtual)}</td></tr>
         ${atuais.map(([n, a, v]) => `<tr class="sub"><td>${n} · ${pct(a)}</td><td></td><td>${brl(v)}</td></tr>`).join('')}
-        <tr class="grupo"><td>CBS + IBS em ${ano} (cálculo acima)</td><td>${pct(cargaAno.toFixed(2))}</td><td>${brl(r.total)}</td></tr>
+        ${transicao ? `<tr class="grupo"><td>Carga em ${ano}, na transição (estimativa)</td><td>${pct(transicao.carga.toFixed(2))}</td><td>${brl(transicao.total)}</td></tr>
+        <tr class="sub"><td>${transicao.nome} a ${Math.round(transicao.fator * 100)}% · ${pct(Math.round(transicao.aliq * 100) / 100)}</td><td></td><td>${brl(transicao.vIcmsIss)}</td></tr>
+        <tr class="sub"><td>CBS + IBS de ${ano} (cálculo acima)</td><td></td><td>${brl(r.total)}</td></tr>
+        <tr class="sub"><td>PIS/Cofins extintos${servico ? '' : ' e IPI a zero (exceto Zona Franca)'}</td><td></td><td>${brl(0)}</td></tr>` : `<tr class="grupo"><td>CBS + IBS em ${ano} (cálculo acima)</td><td>${pct(cargaAno.toFixed(2))}</td><td>${brl(r.total)}</td></tr>`}
         <tr class="grupo"><td>CBS + IBS plenos, a partir de 2033 (${pct(rp.total)}, ${rp.nome})</td><td>${pct(cargaPlena.toFixed(2))}</td><td>${brl(plena)}</td></tr>
       </tbody>
     </table>
     <div class="caixa ${dif > 0.005 ? 'aviso' : 'ok-caixa'}">Com as alíquotas plenas, a carga ${Math.abs(dif) < 0.005 ? 'fica igual à' : `<b>${dif > 0 ? 'sobe' : 'cai'} ${Math.abs(dif).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ponto${Math.abs(dif) >= 2 ? 's' : ''} percentua${Math.abs(dif) >= 2 ? 'is' : 'l'}</b> em relação à`} estimativa atual (${dif > 0 ? '+' : ''}${brl(plena - totalAtual)}).</div>
-    ${ano < 2033 ? `<p class="info">Entre 2026 e 2032 os impostos atuais e a CBS/IBS convivem em transição: em 2026 a CBS/IBS é um teste de 1%, compensável com PIS/Cofins. A comparação justa é com a linha "plenos".</p>` : ''}
+    ${ano < 2027 ? `<p class="info">Em 2026 a CBS/IBS é um teste de 1%, compensável com PIS/Cofins. Escolha uma data de 2027 a 2032 para ver a carga de cada ano da transição.</p>` : transicao ? `<p class="info">${esc(at.transicao.fonte)}</p>` : ''}
     ${classe.reducao.some((x) => x > 0) ? '<p class="info">Esta classificação tem benefício na reforma. Hoje o mesmo item pode ter benefícios de ICMS ou PIS/Cofins (como a cesta básica, com PIS/Cofins zero); se for o caso, ajuste os campos acima.</p>' : ''}
     <details><summary>Fontes e premissas</summary>
       <p>${esc(at.icmsInterno.fonte)}</p>${dados.tipi ? `<p>IPI: ${esc(dados.tipi.fonte)}, lida em ${dados.tipi.dataLeitura.split('-').reverse().join('/')}. Estimativa: o IPI só é cobrado na saída da indústria ou do importador, e algumas NCMs têm exceções (Ex) não consideradas.</p>` : ''}<p>${esc(at.pisCofins.fonte)}</p><p>${esc(at.iss.fonte)}</p><p>${esc(at.reformaPlena.fonte)}</p>
