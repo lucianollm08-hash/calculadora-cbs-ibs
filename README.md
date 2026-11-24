@@ -18,6 +18,8 @@ As regras e tabelas vêm da calculadora oficial da Receita Federal,
 
 Resultado da última validação: 328 cálculos iguais, 0 diferentes; 600 vínculos iguais, 0 diferentes.
 
+As suspensões (CST 550) e as operações com ZFM/ALC (200022 e 200024) pedem a **tributação regular** (grupo gTribRegular): a tela pergunta a classificação que valeria sem a suspensão (padrão 000001). Como na API oficial, o valor devido fica zerado e o tributo que seria devido aparece à parte. `validar.js` confere essas classificações enviando a tributação regular 000/000001.
+
 ## Comparativo com os impostos atuais (estimativa)
 
 Abaixo do resultado, a página compara a carga de hoje com a CBS/IBS do ano da operação e com a CBS/IBS plena (a partir de 2033).
@@ -45,7 +47,7 @@ O DAS usa as tabelas dos Anexos I a V da LC 123/2006 (redação da LC 155/2016) 
 
 ## O que ainda não calcula
 
-- Imposto Seletivo, monofasia de combustíveis, alíquotas fixas/setoriais específicas e classificações que exigem dados extras da operação.
+- Imposto Seletivo, monofasia de combustíveis, alíquotas fixas/setoriais específicas e ajustes de crédito.
   Elas aparecem na lista com "(não calculada)" e o motivo.
 - Para datas a partir de 2027 ainda não há alíquota oficial de referência: a página pede as alíquotas para simular.
 

@@ -30,8 +30,9 @@ anx_nbs = anexos('NBS', 'NBSA', 'EXCECAO_NBS_APLICAVEL', 'ENBS', 'NBSA_ID')
 
 # ---- classificações ----
 trat = {}
-for cltr, desc, aliq, base, mono in c.execute(f'''
-    select tc.TRCL_CLTR_ID, t.TRTR_DESCRICAO, t.TRTR_EXPRESSAO_ALIQUOTA, t.TRTR_EXPRESSAO_BASE_CALCULO, t.TRTR_IN_POSSUI_MONOFASIA
+for cltr, desc, aliq, base, mono, exige, incomp in c.execute(f'''
+    select tc.TRCL_CLTR_ID, t.TRTR_DESCRICAO, t.TRTR_EXPRESSAO_ALIQUOTA, t.TRTR_EXPRESSAO_BASE_CALCULO, t.TRTR_IN_POSSUI_MONOFASIA,
+           t.TRTR_IN_EXIGE_GRUPO_DESONERACAO, t.TRTR_IN_INCOMPATIVEL_COM_SUSPENSAO
     from TRATAMENTO_CLASSIFICACAO tc join TRATAMENTO_TRIBUTARIO t on t.TRTR_ID = tc.TRCL_TRTR_ID
     where {vig('tc.TRCL_INICIO_VIGENCIA','tc.TRCL_FIM_VIGENCIA')}'''):
     fator = 1.0
@@ -39,6 +40,8 @@ for cltr, desc, aliq, base, mono in c.execute(f'''
     elif base and '(1-100/100)' in base: fator = 0.0
     elif base != 'baseCalculoInformada-impostoSeletivoInformado+impostoSeletivoCalculado': fator = None
     trat[cltr] = {'tratamento': desc, 'aliquotaZero': aliq == '0', 'fatorBase': fator,
+                  # grupo de tributação regular (suspensões e ZFM/ALC): calc.js usa a classificação regular informada
+                  'exigeTribRegular': bool(exige), 'incompativelSuspensao': bool(incomp),
                   'suportado': bool(fator is not None and not mono and aliq in ('aliquota', '0'))}
 
 flags = {cd: (g, d) for cd, g, d in c.execute(f"select SITR_CD, SITR_IND_GIBSCBS, SITR_IND_GDIF from SITUACAO_TRIBUTARIA where SITR_ID <= 18 and {vig('SITR_INICIO_VIGENCIA','SITR_FIM_VIGENCIA')}")}
@@ -51,14 +54,15 @@ for st in api(f'/dados-abertos/situacoes-tributarias/cbs-ibs?data={DATA}'):
             d = api(f"/dados-abertos/classificacoes-tributarias/cbs-ibs/class-trib/{cl['codigo']}?data={DATA}")
         except urllib.error.HTTPError:  # listada, mas fora de vigência na data
             continue
-        t = trat.get(i, {'tratamento': d.get('descricaoTratamentoTributario'), 'aliquotaZero': False, 'fatorBase': None, 'suportado': False})
+        t = trat.get(i, {'tratamento': d.get('descricaoTratamentoTributario'), 'aliquotaZero': False, 'fatorBase': None, 'suportado': False, 'exigeTribRegular': False, 'incompativelSuspensao': False})
         classes.append({
             'codigo': cl['codigo'], 'descricao': cl['descricao'], 'cst': st['codigo'], 'cstDescricao': st['descricao'],
             'tipoAliquota': d.get('tipoAliquota'), 'nomenclatura': d.get('nomenclatura'),
             'tratamento': d.get('descricaoTratamentoTributario') or t['tratamento'],
             'reducao': [d.get('percentualReducaoCbs') or 0, d.get('percentualReducaoIbsUf') or 0, d.get('percentualReducaoIbsMun') or 0],
             'destacaCbsIbs': bool(flags.get(st['codigo'], (1, 0))[0]), 'diferimento': bool(flags.get(st['codigo'], (1, 0))[1]),
-            'aliquotaZero': t['aliquotaZero'], 'fatorBase': t['fatorBase'], 'suportado': t['suportado'],
+            'aliquotaZero': t['aliquotaZero'], 'fatorBase': t['fatorBase'],
+            'exigeTribRegular': t['exigeTribRegular'], 'incompativelSuspensao': t['incompativelSuspensao'], 'suportado': t['suportado'],
             'anexoNcm': anx_ncm.get(i), 'anexoNbs': anx_nbs.get(i),
         })
 salvar('classes.json', classes)

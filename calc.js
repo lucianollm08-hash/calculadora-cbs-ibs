@@ -39,7 +39,10 @@
   }
 
   /**
-   * entrada: { classe, tipo: 'ncm'|'nbs', codigo, valor, data: 'AAAA-MM-DD', aliquotas?: {cbs, ibsUf, ibsMun} }
+   * entrada: { classe, tipo: 'ncm'|'nbs', codigo, valor, data: 'AAAA-MM-DD', aliquotas?: {cbs, ibsUf, ibsMun}, regular?: classe }
+   * regular: classificação da tributação regular (gTribRegular), obrigatória quando classe.exigeTribRegular
+   * (suspensões do CST 550 e operações com ZFM/ALC). Como na API oficial, o cálculo usa as regras da
+   * classificação regular, o valor devido fica zerado e o tributo que seria devido vai em `regular`.
    * dados:   { meta, ncm, nbs }
    */
   function calcular(entrada, dados) {
@@ -55,10 +58,20 @@
     if (!classe.suportado) {
       return { erros: [`A classificação ${classe.codigo} (${classe.tratamento}) tem regra especial que esta versão web ainda não calcula${classe.motivo ? ': ' + classe.motivo : ''}.`] };
     }
-    const anexo = tipo === 'ncm' ? classe.anexoNcm : classe.anexoNbs;
+    // Tributação regular (ProcessamentoItemService oficial): a conta segue a classificação regular informada
+    let regra = classe;
+    if (classe.exigeTribRegular) {
+      const reg = entrada.regular;
+      if (!reg) return { erros: [`A classificação ${classe.codigo} exige informar a tributação regular (a classificação que valeria sem a ${classe.cstDescricao.toLowerCase()}).`] };
+      if (reg.exigeTribRegular || reg.incompativelSuspensao || !reg.suportado || !reg.destacaCbsIbs) {
+        return { erros: [`A classificação ${reg.codigo} não pode ser usada como tributação regular da ${classe.codigo}.`] };
+      }
+      regra = reg;
+    }
+    const anexo = tipo === 'ncm' ? regra.anexoNcm : regra.anexoNbs;
     const ap = aplicavel(anexo, codigo, data);
     if (!ap.valido) {
-      return { erros: [`${tipo.toUpperCase()} ${codigo} não está vinculado à classificação ${classe.codigo} (fora do anexo da LC 214/2025).`] };
+      return { erros: [`${tipo.toUpperCase()} ${codigo} não está vinculado à classificação ${regra.codigo} (fora do anexo da LC 214/2025).`] };
     }
 
     if (!classe.destacaCbsIbs) {
@@ -73,10 +86,21 @@
       aliq = ['CBS', 'IBSUF', 'IBSMun'].map((s) => aliquotaReferencia(dados.meta, s, data));
       if (aliq.some((a) => a === null)) return { erros: ['Não há alíquota oficial de referência para essa data. Informe as alíquotas para simular.'] };
     }
-    if (classe.aliquotaZero) aliq = [0, 0, 0];
+    if (regra.aliquotaZero) aliq = [0, 0, 0];
 
-    const base = arred(valor * classe.fatorBase, 2);
+    const base = arred(valor * regra.fatorBase, 2);
     const nomes = ['CBS (federal)', 'IBS estadual', 'IBS municipal'];
+    if (regra !== classe) {
+      // Grupo de tributação regular: alíquota efetiva da classificação regular (4 casas) × base;
+      // no grupo principal a alíquota e o valor devido ficam zerados.
+      const tributos = aliq.map((a, i) => {
+        const reducao = regra.reducao[i] || 0;
+        const efetiva = arred(a * (1 - reducao / 100), 4);
+        return { nome: nomes[i], aliquota: 0, reducao: 0, efetiva: 0, diferido: 0, valor: 0, regular: { aliquota: a, reducao, efetiva, valor: arred(base * efetiva / 100, 2) } };
+      });
+      const totalRegular = arred(tributos.reduce((s, t) => s + t.regular.valor, 0), 2);
+      return { base, tributos, total: 0, simulado, regular: { classe: regra, total: totalRegular }, temAnexo: ap.temAnexo };
+    }
     const tributos = aliq.map((a, i) => {
       const reducao = classe.reducao[i] || 0;
       const efetiva = arred(a * (1 - reducao / 100), 4);
