@@ -44,8 +44,8 @@
     "maximo": 5
   },
   "reformaPlena": {
-    "fonte": "Estimativa: CBS de 11,3%, alíquota de referência calculada pelo TCU em 28/10/2026 para 2027 (https://portal.tcu.gov.br/imprensa/noticias/tcu-calcula-aliquota-de-referencia-de-113-para-novo-tributo-sobre-consumo), mais IBS de 17,7% da referência de 26,5% da LC 214/2025. As alíquotas definitivas ainda serão fixadas pelo Senado.",
-    "cbs": 11.3,
+    "fonte": "Começa com a alíquota de referência de 26,5% prevista na LC 214/2025 (CBS 8,8% + IBS 17,7%), editável na tela. Para comparar: o TCU estimou a CBS de 2027 em 11,3% em 28/10/2026 (https://portal.tcu.gov.br/imprensa/noticias/tcu-calcula-aliquota-de-referencia-de-113-para-novo-tributo-sobre-consumo), o que, com o IBS de 17,7%, dá 29%. As alíquotas definitivas ainda serão fixadas pelo Senado.",
+    "cbs": 8.8,
     "ibs": 17.7
   }
 }

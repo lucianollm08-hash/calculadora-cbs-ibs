@@ -30,7 +30,7 @@ As alíquotas atuais ficam em `dados/impostos-atuais.json` e podem ser ajustadas
   com o ICMS fora da base (STF, Tema 69). Para alimentos do Anexo I (cesta básica), a tela já começa com alíquota zero (Lei 10.925/2004).
 - **IPI:** preenchido pelo NCM a partir da [TIPI oficial em PDF](https://www.gov.br/receitafederal/pt-br/acesso-a-informacao/legislacao/documentos-e-arquivos/tipi.pdf), baixada e convertida pela rotina diária (`ferramentas/tipi.py` → `dados/tipi.json`). É estimativa: só vale para indústria e importador e não considera os "Ex" da TIPI. Se a leitura falhar, a versão anterior é mantida.
 - **ISS:** 5% por padrão, ajustável entre 2% e 5% (LC 116/2003 e LC 157/2016).
-- **CBS/IBS plenos:** 26,5% (CBS 8,8% + IBS 17,7%), teto de referência da LC 214/2025. A Resolução CGIBS nº 14/2026 projetou 27,91% para 2027.
+- **CBS/IBS plenos:** 26,5% (CBS 8,8% + IBS 17,7%), referência da LC 214/2025, como ponto de partida. No comparativo os dois campos são editáveis, por exemplo para simular 29% com a CBS de 11,3% estimada pelo TCU para 2027. A Resolução CGIBS nº 14/2026 projetou 27,91% para 2027.
 
 Não considera créditos de etapas anteriores nem o Simples Nacional.
 
