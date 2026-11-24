@@ -332,9 +332,9 @@
     </ul>
     <h3>Na prática</h3>
     <ul>
-      <li>Até 2032, uma venda pode ter ICMS ou ISS e CBS/IBS ao mesmo tempo. É por isso que o comparativo usa as alíquotas plenas estimadas (29%: CBS de 11,3% estimada pelo TCU + IBS de 17,7%) para comparar com o sistema de hoje.</li>
+      <li>Até 2032, uma venda pode ter ICMS ou ISS e CBS/IBS ao mesmo tempo. É por isso que o comparativo usa as alíquotas plenas para comparar com o sistema de hoje: começando em 26,5% da LC 214/2025 (CBS 8,8% + IBS 17,7%), com os campos editáveis para simular outros valores, como os 29% com a CBS de 11,3% estimada pelo TCU.</li>
       <li>A partir de 2027, a CBS/IBS deixa de entrar na base do ICMS e do ISS, e vice-versa: cada tributo é calculado "por fora".</li>
-      <li>A alíquota final de referência ainda vai ser fixada pelo Senado. A LC 214/2025 prevê uma referência de 26,5% somando CBS e IBS, mas o TCU calculou a CBS de 2027 em 11,3%, o que leva a soma para perto de 29%. Os valores da calculadora para os anos futuros são estimativas.</li>
+      <li>A alíquota final de referência ainda vai ser fixada pelo Senado. A LC 214/2025 prevê uma referência de 26,5% somando CBS e IBS, mas o TCU calculou a CBS de 2027 em 11,3%, o que leva a soma para perto de 29%. A calculadora começa com 26,5%, e você pode editar a CBS e o IBS plenos no comparativo. Os valores para os anos futuros são estimativas.</li>
     </ul>
     <p class="info">Base: Emenda Constitucional 132/2023 e LC 214/2025 (arts. 343 a 348 e disposições de transição). Explicação simplificada.</p>
   </div>
@@ -626,6 +626,8 @@ function iniciarComparativo(entrada, classe, r) {
         <option value="cumulativo">Presumido · 3,65%</option>
         <option value="zero">Zero / isento</option>
       </select></div>
+      <div><label for="cPlenoCbs">CBS plena (%)</label><input id="cPlenoCbs" inputmode="decimal" value="${String(aliqPlena().cbs).replace('.', ',')}"><div class="dica">LC 214: 8,8% · TCU: 11,3%</div></div>
+      <div><label for="cPlenoIbs">IBS pleno (%)</label><input id="cPlenoIbs" inputmode="decimal" value="${String(aliqPlena().ibs).replace('.', ',')}"><div class="dica">LC 214: 17,7% · a partir de 2033</div></div>
     </div>
     <div id="compTabela"></div>
    </details>
@@ -633,6 +635,12 @@ function iniciarComparativo(entrada, classe, r) {
   $('compDet').addEventListener('toggle', () => { compAberto = $('compDet').open; });
   // Alimentos do Anexo I (cesta básica) hoje costumam ter PIS/Cofins zero (Lei 10.925/2004)
   if (classe.codigo === '200003') $('cPis').value = 'zero';
+  const lerPleno = () => {
+    const ler = (id) => { const v = num($(id).value); return Number.isFinite(v) && v >= 0 ? v : 0; };
+    plenoEditado = { cbs: ler('cPlenoCbs'), ibs: ler('cPlenoIbs') };
+  };
+  $('cPlenoCbs').addEventListener('input', lerPleno);
+  $('cPlenoIbs').addEventListener('input', lerPleno);
   $('compDet').querySelectorAll('input, select').forEach((el) => el.addEventListener('input', () => { atualizarComparativo(); if (dados.simples) atualizarSimples(); }));
   atualizarComparativo();
   iniciarSimples();
@@ -648,15 +656,25 @@ function atualizarTotais() {
   const linha = (rotulo, valor, sub) => `<div class="tot-linha"><span>${rotulo}${sub ? `<small>${esc(sub)}</small>` : ''}</span><span class="tot-carga">${valor === null ? '—' : pct((valor / v * 100).toFixed(2))}</span><b>${valor === null ? '—' : brl(valor)}</b></div>`;
   el.innerHTML = [
     linha(`CBS + IBS em ${ano}`, r.total, r.simulado ? 'estimativa (CBS do TCU), o mesmo de cima' : 'cálculo oficial, o mesmo de cima'),
-    linha('CBS + IBS estimado', t.plena ?? null, `estimativa plena: CBS ${pct(dados['impostos-atuais'].reformaPlena.cbs)} (TCU) + IBS ${pct(dados['impostos-atuais'].reformaPlena.ibs)}`),
+    linha('CBS + IBS estimado', t.plena ?? null, `estimativa plena (${aliqPlena().nome}): CBS ${pct(aliqPlena().cbs)} + IBS ${pct(aliqPlena().ibs)}`),
     linha('Impostos atuais estimados', t.atual ?? null, t.atualNome),
     linha('Simples Nacional estimado', t.sn ?? null, t.snNome || 'informe a receita no comparativo do Simples'),
   ].join('');
 }
 
+// Alíquotas plenas (2033): começam na referência da LC 214/2025 e podem ser editadas no comparativo
+let plenoEditado = null;
+function aliqPlena() {
+  const rp = dados['impostos-atuais'].reformaPlena;
+  const c = plenoEditado || { cbs: rp.cbs, ibs: rp.ibs };
+  const total = Math.round((c.cbs + c.ibs) * 100) / 100;
+  const padrao = c.cbs === rp.cbs && c.ibs === rp.ibs;
+  return { ...c, total, nome: padrao ? 'LC 214/2025' : 'alíquota informada' };
+}
+
 // CBS + IBS com as alíquotas plenas (2033), aplicando as reduções da classificação
 function cbsIbsPleno(classe, valor) {
-  const rp = dados['impostos-atuais'].reformaPlena;
+  const rp = aliqPlena();
   if (!classe.destacaCbsIbs || classe.diferimento || classe.aliquotaZero) return { cbs: 0, ibs: 0, total: 0 };
   const base = valor * (classe.fatorBase ?? 1);
   const cbs = base * rp.cbs * (1 - classe.reducao[0] / 100) / 100;
@@ -690,7 +708,7 @@ function atualizarComparativo() {
 
   // Reforma: o cálculo do ano da operação e a estimativa com as alíquotas plenas
   const cargaAno = r.total / valor * 100;
-  const rp = at.reformaPlena;
+  const rp = aliqPlena();
   const plena = cbsIbsPleno(classe, valor).total;
   const cargaPlena = plena / valor * 100;
   const dif = cargaPlena - cargaAtual;
@@ -708,7 +726,7 @@ function atualizarComparativo() {
         <tr class="grupo"><td>Impostos atuais (estimativa)</td><td>${pct(cargaAtual.toFixed(2))}</td><td>${brl(totalAtual)}</td></tr>
         ${atuais.map(([n, a, v]) => `<tr class="sub"><td>${n} · ${pct(a)}</td><td></td><td>${brl(v)}</td></tr>`).join('')}
         <tr class="grupo"><td>CBS + IBS em ${ano} (cálculo acima)</td><td>${pct(cargaAno.toFixed(2))}</td><td>${brl(r.total)}</td></tr>
-        <tr class="grupo"><td>CBS + IBS plenos, a partir de 2033 (estimativa ${pct(rp.cbs + rp.ibs)}, CBS do TCU)</td><td>${pct(cargaPlena.toFixed(2))}</td><td>${brl(plena)}</td></tr>
+        <tr class="grupo"><td>CBS + IBS plenos, a partir de 2033 (${pct(rp.total)}, ${rp.nome})</td><td>${pct(cargaPlena.toFixed(2))}</td><td>${brl(plena)}</td></tr>
       </tbody>
     </table>
     <div class="caixa ${dif > 0.005 ? 'aviso' : 'ok-caixa'}">Com as alíquotas plenas, a carga ${Math.abs(dif) < 0.005 ? 'fica igual à' : `<b>${dif > 0 ? 'sobe' : 'cai'} ${Math.abs(dif).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ponto${Math.abs(dif) >= 2 ? 's' : ''} percentua${Math.abs(dif) >= 2 ? 'is' : 'l'}</b> em relação à`} estimativa atual (${dif > 0 ? '+' : ''}${brl(plena - totalAtual)}).</div>
@@ -815,7 +833,7 @@ function atualizarSimples() {
   const pCbsDas = (d.parte.PIS || 0) + (d.parte.Cofins || 0);
   const pIbsDas = (d.parte.ICMS || 0) + (d.parte.ISS || 0);
   const plena = cbsIbsPleno(classe, valor);
-  const rp = at.reformaPlena;
+  const rp = aliqPlena();
 
   // Opção 1: CBS/IBS dentro do DAS (total do DAS igual); na 6ª faixa o IBS fica fora, como o ICMS/ISS hoje
   const vCbsDentro = valor * pCbsDas / 100;
@@ -825,7 +843,7 @@ function atualizarSimples() {
 
   // Opção 2: CBS/IBS por fora, no regime regular, com crédito das compras
   const dasSemCbsIbs = valor * (d.efetiva - pCbsDas - pIbsDas) / 100;
-  const creditoCompras = valor * compras / 100 * (rp.cbs + rp.ibs) / 100;
+  const creditoCompras = valor * compras / 100 * rp.total / 100;
   const cbsIbsFora = Math.max(plena.total - creditoCompras, 0);
   const fora = dasSemCbsIbs + cbsIbsFora;
 
@@ -853,7 +871,7 @@ function atualizarSimples() {
         <tr class="grupo"><td>Reforma · CBS/IBS por fora (regime regular)</td><td>${p2(c(fora))}</td><td>${brl(fora)}</td></tr>
         <tr class="sub"><td>DAS sem PIS/Cofins e ${d.local}</td><td></td><td>${brl(dasSemCbsIbs)}</td></tr>
         <tr class="sub"><td>CBS + IBS plenos${classe.reducao.some((x) => x > 0) ? ' com a redução da classificação' : ''}</td><td></td><td>${brl(plena.total)}</td></tr>
-        ${creditoCompras ? `<tr class="sub"><td>− crédito das compras (${pct(compras)} do preço × ${pct(rp.cbs + rp.ibs)})</td><td></td><td>−${brl(Math.min(creditoCompras, plena.total))}</td></tr>` : ''}
+        ${creditoCompras ? `<tr class="sub"><td>− crédito das compras (${pct(compras)} do preço × ${pct(rp.total)})</td><td></td><td>−${brl(Math.min(creditoCompras, plena.total))}</td></tr>` : ''}
         <tr class="sub"><td>Cliente pode creditar a CBS/IBS cheia</td><td></td><td>${brl(plena.total)}</td></tr>
       </tbody>
     </table>
@@ -866,7 +884,7 @@ function atualizarSimples() {
     <details><summary>Fontes e premissas</summary>
       <p>${esc(sn.fonte)}</p><p>${esc(sn.reforma)}</p>
       <p>Alíquota efetiva = (receita 12 meses × alíquota nominal − parcela a deduzir) ÷ receita 12 meses. ${d.excessoIss ? `O ISS foi limitado a ${pct(sn.issMaximo)} e o excedente (${p2(d.excessoIss)}) foi repassado aos tributos federais, como manda a LC 123.` : `O ISS dentro do DAS é limitado a ${pct(sn.issMaximo)}.`}</p>
-      <p>Premissas: o total do DAS continua o mesmo na reforma; dentro do DAS não se aplicam as reduções da classificação; o crédito das compras usa a alíquota cheia de ${pct(rp.cbs + rp.ibs)}; o IPI do Anexo II segue no DAS. A calculadora oficial do Simples da Receita (calculadora-rtc-simples-nacional) recebe as alíquotas do DAS já prontas e por isso não foi usada nesta conta.</p>
+      <p>Premissas: o total do DAS continua o mesmo na reforma; dentro do DAS não se aplicam as reduções da classificação; o crédito das compras usa a alíquota cheia de ${pct(rp.total)}; o IPI do Anexo II segue no DAS. A calculadora oficial do Simples da Receita (calculadora-rtc-simples-nacional) recebe as alíquotas do DAS já prontas e por isso não foi usada nesta conta.</p>
     </details>`;
 }
 
