@@ -142,6 +142,18 @@
   .selecionada span { display: block; font-size: .72rem; color: var(--suave); text-transform: uppercase; letter-spacing: .03em; }
   .selecionada b { color: var(--destaque); margin-right: 4px; }
   footer p { margin: 2px 0; }
+  .nota { margin-top: 20px; }
+  .nota-topo { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; }
+  .nota-topo h2 { margin: 0; font-size: 1.1rem; }
+  .nota button.sec { padding: 8px 12px; border: 1px solid var(--destaque); background: var(--card); color: var(--destaque); border-radius: 8px; font: 600 .9rem system-ui, sans-serif; cursor: pointer; }
+  .nota button.sec:disabled { opacity: .5; cursor: not-allowed; }
+  .nota button.tirar { border: 0; background: none; color: var(--erro); cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+  .nota .rolagem { overflow-x: auto; margin-top: 12px; }
+  .nota td small { display: block; color: var(--suave); }
+  .nota .rolagem td:nth-child(2), .nota .rolagem th:nth-child(2) { text-align: left; min-width: 150px; }
+  #notaApuracao td:first-child { text-align: left; }
+  .apuracao { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  @media (max-width: 560px) { .apuracao { grid-template-columns: minmax(0, 1fr); } }
   footer { margin-top: 24px; font-size: .8rem; color: var(--suave); }
 </style>
 </head>
@@ -215,6 +227,8 @@
       <div class="vazio">Preencha os dados e clique em <b>Calcular</b>.</div>
     </section>
   </div>
+
+  <section class="card nota" id="nota" aria-live="polite"></section>
 
   <nav class="conceitos" aria-label="Entenda a reforma">
     <button type="button" class="conceito" data-ajuda="transicao"><span class="q">?</span><span><b>Convivência entre os impostos</b><small>o que muda de 2026 a 2033</small></span></button>
@@ -595,6 +609,7 @@ function calcular(ev) {
 let ctxComp = null;
 let compAberto = false; // lembra se a pessoa abriu o comparativo
 function iniciarComparativo(entrada, classe, r) {
+  registrarCalculo(entrada, classe, r);
   const at = dados['impostos-atuais'];
   const uf = $('uf').value;
   ctxComp = { entrada, classe, r, totais: {} };
@@ -902,6 +917,74 @@ $('classTrib').addEventListener('change', mostrarClasse);
 $('uf').addEventListener('change', preencherMunicipios);
 $('municipio').addEventListener('change', mostrarLocal);
 $('data').addEventListener('change', () => { verificarReferencia(); consultarCodigo(); });
+// ---------- Nota com vários itens e apuração com créditos (regime regular) ----------
+let ultimoCalculo = null;
+let nota = { itens: [], creditoCbs: '', creditoIbs: '' };
+try { const s = JSON.parse(localStorage.getItem('nota-cbs-ibs') || 'null'); if (s && Array.isArray(s.itens)) nota = { ...nota, ...s }; } catch (e) { /* sem armazenamento */ }
+function salvarNota() { try { localStorage.setItem('nota-cbs-ibs', JSON.stringify(nota)); } catch (e) { /* sem armazenamento */ } }
+
+function registrarCalculo(entrada, classe, r) {
+  const t = r.tributos || [];
+  ultimoCalculo = {
+    codigo: entrada.codigo, tipo: entrada.tipo, classe: classe.codigo, descricao: classe.descricao, data: entrada.data,
+    valor: entrada.valor, cbs: t[0] ? t[0].valor : 0, ibs: (t[1] ? t[1].valor : 0) + (t[2] ? t[2].valor : 0),
+  };
+  renderNota();
+}
+
+function renderNota() {
+  const el = $('nota');
+  const itens = nota.itens;
+  const soma = (k) => Math.round(itens.reduce((s, i) => s + i[k], 0) * 100) / 100;
+  const tot = { valor: soma('valor'), cbs: soma('cbs'), ibs: soma('ibs') };
+  const anos = [...new Set(itens.map((i) => i.data.slice(0, 4)))];
+  const lerR = (v) => { const n = num(v || 0); return Number.isFinite(n) && n > 0 ? n : 0; };
+  const cCbs = lerR(nota.creditoCbs), cIbs = lerR(nota.creditoIbs);
+  const apura = (deb, cred) => ({ recolher: Math.max(deb - cred, 0), saldo: Math.max(cred - deb, 0) });
+  const aCbs = apura(tot.cbs, cCbs), aIbs = apura(tot.ibs, cIbs);
+  el.innerHTML = `
+    <div class="nota-topo">
+      <h2>Nota com vários itens</h2>
+      <span>
+        <button type="button" class="sec" id="notaAdd" ${ultimoCalculo ? '' : 'disabled'}>＋ Adicionar o item calculado</button>
+        ${itens.length ? '<button type="button" class="sec" id="notaLimpar">Limpar</button>' : ''}
+      </span>
+    </div>
+    ${!itens.length ? `<p class="info">Calcule um item e clique em <b>Adicionar</b> para montar uma nota com vários produtos ou serviços. A nota fica salva neste navegador.</p>` : `
+    <div class="rolagem"><table>
+      <thead><tr><th>#</th><th>Item</th><th>Valor</th><th>CBS</th><th>IBS</th><th>Total</th><th></th></tr></thead>
+      <tbody>${itens.map((i, n) => `<tr><td>${n + 1}</td><td>${i.tipo.toUpperCase()} ${esc(i.codigo)}<small>${esc(i.classe)} · ${esc(i.descricao.slice(0, 60))}${i.descricao.length > 60 ? '…' : ''}</small></td>
+        <td>${brl(i.valor)}</td><td>${brl(i.cbs)}</td><td>${brl(i.ibs)}</td><td>${brl(i.cbs + i.ibs)}</td>
+        <td><button type="button" class="tirar" data-tirar="${n}" aria-label="Tirar o item ${n + 1}" title="Tirar">✕</button></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td></td><td>Total da nota (${itens.length} ${itens.length === 1 ? 'item' : 'itens'})</td><td>${brl(tot.valor)}</td><td>${brl(tot.cbs)}</td><td>${brl(tot.ibs)}</td><td>${brl(tot.cbs + tot.ibs)}</td><td></td></tr></tfoot>
+    </table></div>
+    ${anos.length > 1 ? `<div class="caixa aviso">A nota mistura itens de anos diferentes (${anos.join(', ')}). Numa nota real todos os itens têm a mesma data.</div>` : ''}
+    <h3>Apuração com créditos (regime regular)</h3>
+    <p class="info">Na reforma, a CBS e o IBS pagos nas compras viram crédito e são abatidos do que você deve nas vendas (LC 214/2025, arts. 47 e seguintes). Informe o total de CBS e de IBS destacados nas notas de compra do período.</p>
+    <div class="apuracao">
+      <div><label for="notaCredCbs">Crédito de CBS das compras (R$)</label><input id="notaCredCbs" inputmode="decimal" value="${esc(nota.creditoCbs)}" placeholder="0,00"></div>
+      <div><label for="notaCredIbs">Crédito de IBS das compras (R$)</label><input id="notaCredIbs" inputmode="decimal" value="${esc(nota.creditoIbs)}" placeholder="0,00"></div>
+    </div>
+    <div class="rolagem"><table id="notaApuracao">
+      <thead><tr><th></th><th>CBS</th><th>IBS</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>Débitos (vendas da nota)</td><td>${brl(tot.cbs)}</td><td>${brl(tot.ibs)}</td><td>${brl(tot.cbs + tot.ibs)}</td></tr>
+        <tr><td>− Créditos (compras)</td><td>${brl(cCbs)}</td><td>${brl(cIbs)}</td><td>${brl(cCbs + cIbs)}</td></tr>
+      </tbody>
+      <tfoot>
+        <tr><td>A recolher</td><td>${brl(aCbs.recolher)}</td><td>${brl(aIbs.recolher)}</td><td>${brl(aCbs.recolher + aIbs.recolher)}</td></tr>
+        ${aCbs.saldo || aIbs.saldo ? `<tr><td>Saldo credor para o próximo período</td><td>${brl(aCbs.saldo)}</td><td>${brl(aIbs.saldo)}</td><td>${brl(aCbs.saldo + aIbs.saldo)}</td></tr>` : ''}
+      </tfoot>
+    </table></div>
+    <p class="info">Simplificação: a apuração real é mensal e soma todas as notas do período; crédito de CBS só abate CBS e de IBS só abate IBS. O split payment pode antecipar parte desse acerto.</p>`}`;
+  if ($('notaAdd')) $('notaAdd').addEventListener('click', () => { if (!ultimoCalculo) return; nota.itens.push(ultimoCalculo); ultimoCalculo = null; salvarNota(); renderNota(); });
+  if ($('notaLimpar')) $('notaLimpar').addEventListener('click', () => { nota = { itens: [], creditoCbs: '', creditoIbs: '' }; salvarNota(); renderNota(); });
+  el.querySelectorAll('[data-tirar]').forEach((b) => b.addEventListener('click', () => { nota.itens.splice(Number(b.dataset.tirar), 1); salvarNota(); renderNota(); }));
+  const cred = (id, k) => { if (!$(id)) return; $(id).addEventListener('change', () => { nota[k] = $(id).value; salvarNota(); renderNota(); }); };
+  cred('notaCredCbs', 'creditoCbs'); cred('notaCredIbs', 'creditoIbs');
+}
+renderNota();
+
 $('form').addEventListener('submit', calcular);
 
 // ---------- Busca de NCM/NBS por nome ----------
