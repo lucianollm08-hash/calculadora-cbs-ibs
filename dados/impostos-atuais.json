@@ -44,12 +44,13 @@
     "maximo": 5
   },
   "reformaPlena": {
-    "fonte": "Começa com a alíquota de referência de 26,5% prevista na LC 214/2025 (CBS 8,8% + IBS 17,7%), editável na tela. Para comparar: o TCU estimou a CBS de 2027 em 11,3% em 28/10/2026 (https://portal.tcu.gov.br/imprensa/noticias/tcu-calcula-aliquota-de-referencia-de-113-para-novo-tributo-sobre-consumo), o que, com o IBS de 17,7%, dá 29%. As alíquotas definitivas ainda serão fixadas pelo Senado.",
-    "cbs": 8.8,
+    "fonte": "Começa com a CBS de 11,3%, alíquota de referência calculada pelo TCU em 28/10/2026 para 2027 (https://portal.tcu.gov.br/imprensa/noticias/tcu-calcula-aliquota-de-referencia-de-113-para-novo-tributo-sobre-consumo), mais o IBS de 17,7% da referência da LC 214/2025, somando 29%. A LC 214/2025 previa 26,5% (CBS 8,8% + IBS 17,7%). Editável na tela; as alíquotas definitivas ainda serão fixadas pelo Senado.",
+    "nome": "CBS estimada pelo TCU",
+    "cbs": 11.3,
     "ibs": 17.7
   },
   "transicao": {
-    "fonte": "EC 132/2023 (ADCT, arts. 125 a 129) e LC 214/2025 (arts. 343 a 348): em 2027 e 2028 PIS/Cofins são extintos, o IPI vai a zero (exceto Zona Franca de Manaus), a CBS vale integralmente reduzida em 0,1 ponto e o IBS é de 0,05% estadual + 0,05% municipal; de 2029 a 2032 o ICMS e o ISS caem para 90%, 80%, 70% e 60% e o IBS sobe para 10%, 20%, 30% e 40% da alíquota de referência; em 2033 ficam só CBS e IBS. Estimativa: a CBS e o IBS partem das mesmas alíquotas plenas do comparativo (26,5% da LC 214/2025 por padrão), com o IBS dividido meio a meio entre estado e município por falta de alíquotas definidas. Tudo editável na tela.",
+    "fonte": "EC 132/2023 (ADCT, arts. 125 a 129) e LC 214/2025 (arts. 343 a 348): em 2027 e 2028 PIS/Cofins são extintos, o IPI vai a zero (exceto Zona Franca de Manaus), a CBS vale integralmente reduzida em 0,1 ponto e o IBS é de 0,05% estadual + 0,05% municipal; de 2029 a 2032 o ICMS e o ISS caem para 90%, 80%, 70% e 60% e o IBS sobe para 10%, 20%, 30% e 40% da alíquota de referência; em 2033 ficam só CBS e IBS. Estimativa: a CBS e o IBS partem das mesmas alíquotas plenas do comparativo (29% por padrão: CBS de 11,3% do TCU + IBS de 17,7%), com o IBS dividido meio a meio entre estado e município por falta de alíquotas definidas. Tudo editável na tela.",
     "partilhaUf": 0.5,
     "anos": {
       "2027": {
