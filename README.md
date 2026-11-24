@@ -32,7 +32,7 @@ As alíquotas atuais ficam em `dados/impostos-atuais.json` e podem ser ajustadas
 - **ISS:** 5% por padrão, ajustável entre 2% e 5% (LC 116/2003 e LC 157/2016).
 - **CBS/IBS plenos:** 26,5% (CBS 8,8% + IBS 17,7%), referência da LC 214/2025, como ponto de partida. No comparativo os dois campos são editáveis, por exemplo para simular 29% com a CBS de 11,3% estimada pelo TCU para 2027. A Resolução CGIBS nº 14/2026 projetou 27,91% para 2027.
 
-Não considera créditos de etapas anteriores nem o Simples Nacional.
+O comparativo não considera créditos de etapas anteriores (a apuração com créditos fica na nota com vários itens) nem o Simples Nacional.
 
 ## Comparativo no Simples Nacional (estimativa)
 
@@ -42,6 +42,10 @@ Um segundo cartão, também recolhido, compara o DAS de hoje com as duas opçõe
 - **CBS/IBS por fora (regime regular, art. 41, §3º da LC 214/2025)**: o DAS perde as parcelas de PIS/Cofins e ICMS/ISS, e a CBS/IBS é paga com as alíquotas plenas (com as reduções da classificação), descontado o crédito das compras informado. O cliente credita a CBS/IBS cheia.
 
 O DAS usa as tabelas dos Anexos I a V da LC 123/2006 (redação da LC 155/2016) em `dados/simples-nacional.json`: alíquota efetiva pela receita dos últimos 12 meses, repartição por tributo, limite de 5% do ISS com repasse do excedente aos tributos federais e ICMS/ISS fora do DAS acima do sublimite de R$ 3,6 milhões. A calculadora oficial do Simples (ReceitaFederal/calculadora-rtc-simples-nacional) recebe as alíquotas do DAS já prontas, por isso as tabelas da LC 123 são aplicadas aqui.
+
+## Nota com vários itens e créditos
+
+Abaixo do resultado, o botão **Adicionar o item calculado** monta uma nota com vários produtos ou serviços, com os totais de CBS e IBS. A nota fica salva no navegador. Nela dá para informar a CBS e o IBS das notas de compra para ver a apuração do regime regular (débitos − créditos = a recolher, ou saldo credor), de forma simplificada.
 
 ## O que ainda não calcula
 
