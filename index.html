@@ -218,7 +218,7 @@
       <div id="blocoAliquotas" hidden>
         <div class="caixa aviso" id="avisoAliquotas">Ainda não há alíquota oficial de referência para essa data. Ajuste se quiser simular outros valores (em %).</div>
         <div class="linha3">
-          <div><label for="aCbs">CBS</label><input id="aCbs" inputmode="decimal" value="8,7"></div>
+          <div><label for="aCbs">CBS</label><input id="aCbs" inputmode="decimal" value="11,2"></div>
           <div><label for="aUf">IBS estadual</label><input id="aUf" inputmode="decimal" value="0,05"></div>
           <div><label for="aMun">IBS municipal</label><input id="aMun" inputmode="decimal" value="0,05"></div>
         </div>
@@ -351,9 +351,9 @@
     </ul>
     <h3>Na prática</h3>
     <ul>
-      <li>Até 2032, uma venda pode ter ICMS ou ISS e CBS/IBS ao mesmo tempo. É por isso que o comparativo usa as alíquotas plenas para comparar com o sistema de hoje: começando em 26,5% da LC 214/2025 (CBS 8,8% + IBS 17,7%), com os campos editáveis para simular outros valores, como os 29% com a CBS de 11,3% estimada pelo TCU.</li>
+      <li>Até 2032, uma venda pode ter ICMS ou ISS e CBS/IBS ao mesmo tempo. É por isso que o comparativo usa as alíquotas plenas para comparar com o sistema de hoje: começando em 29% (CBS de 11,3% estimada pelo TCU + IBS de 17,7%), com os campos editáveis para simular outros valores, como os 26,5% previstos na LC 214/2025.</li>
       <li>A partir de 2027, a CBS/IBS deixa de entrar na base do ICMS e do ISS, e vice-versa: cada tributo é calculado "por fora".</li>
-      <li>A alíquota final de referência ainda vai ser fixada pelo Senado. A LC 214/2025 prevê uma referência de 26,5% somando CBS e IBS, mas o TCU calculou a CBS de 2027 em 11,3%, o que leva a soma para perto de 29%. A calculadora começa com 26,5%, e você pode editar a CBS e o IBS plenos no comparativo. Os valores para os anos futuros são estimativas.</li>
+      <li>A alíquota final de referência ainda vai ser fixada pelo Senado. A LC 214/2025 prevê uma referência de 26,5% somando CBS e IBS, mas o TCU calculou a CBS de 2027 em 11,3%, o que leva a soma para perto de 29%. A calculadora começa com 29%, e você pode editar a CBS e o IBS plenos no comparativo. Os valores para os anos futuros são estimativas.</li>
     </ul>
     <p class="info">Base: Emenda Constitucional 132/2023 e LC 214/2025 (arts. 343 a 348 e disposições de transição). Explicação simplificada.</p>
   </div>
@@ -615,7 +615,7 @@ function verificarReferencia() {
     : t.ibsFracao < 1
       ? `em ${t.ano}, a CBS integral e o IBS a ${Math.round(t.ibsFracao * 100)}% da referência de ${pct(aliqPlena().ibs)}, enquanto o ICMS e o ISS caem para ${Math.round(t.icmsIss * 100)}%`
       : `a partir de 2033, a CBS e o IBS plenos (${pct(aliqPlena().cbs)} + ${pct(aliqPlena().ibs)})`;
-  $('avisoAliquotas').innerHTML = `Ainda não há alíquota oficial de referência para essa data. Os campos vêm preenchidos com a <b>estimativa da transição</b>: ${fase}. O IBS é dividido meio a meio entre estado e município. Para simular a CBS de 11,3% estimada pelo TCU, digite no campo. Ajuste se quiser simular outros valores (em %).`;
+  $('avisoAliquotas').innerHTML = `Ainda não há alíquota oficial de referência para essa data. Os campos vêm preenchidos com a <b>estimativa da transição</b>: ${fase}. O IBS é dividido meio a meio entre estado e município. Ajuste se quiser simular outros valores (em %).`;
 }
 
 function calcular(ev) {
@@ -720,7 +720,7 @@ function iniciarComparativo(entrada, classe, r) {
         <option value="cumulativo">Presumido · 3,65%</option>
         <option value="zero">Zero / isento</option>
       </select><div class="dica">"hoje", antes da reforma</div></div>
-      <div><label for="cPlenoCbs">CBS plena (%)</label><input id="cPlenoCbs" inputmode="decimal" value="${String(aliqPlena().cbs).replace('.', ',')}"><div class="dica">LC 214: 8,8% · TCU: 11,3%</div></div>
+      <div><label for="cPlenoCbs">CBS plena (%)</label><input id="cPlenoCbs" inputmode="decimal" value="${String(aliqPlena().cbs).replace('.', ',')}"><div class="dica">TCU: 11,3% · LC 214: 8,8%</div></div>
       <div><label for="cPlenoIbs">IBS pleno (%)</label><input id="cPlenoIbs" inputmode="decimal" value="${String(aliqPlena().ibs).replace('.', ',')}"><div class="dica">LC 214: 17,7% · a partir de 2033</div></div>
     </div>
     <div id="compTabela"></div>
@@ -763,7 +763,7 @@ function aliqPlena() {
   const c = plenoEditado || { cbs: rp.cbs, ibs: rp.ibs };
   const total = Math.round((c.cbs + c.ibs) * 100) / 100;
   const padrao = c.cbs === rp.cbs && c.ibs === rp.ibs;
-  return { ...c, total, nome: padrao ? 'LC 214/2025' : 'alíquota informada' };
+  return { ...c, total, nome: padrao ? (rp.nome || 'padrão') : 'alíquota informada' };
 }
 
 // CBS + IBS com as alíquotas plenas (2033), aplicando as reduções da classificação
