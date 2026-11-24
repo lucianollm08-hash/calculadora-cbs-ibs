@@ -9,6 +9,7 @@ const dados = { meta: ler('meta.json'), ncm: ler('ncm.json'), nbs: ler('nbs.json
 const classes = ler('classes.json');
 const DATA = dados.meta.dataExportacao;
 
+const REGULAR_PADRAO = classes.find((c) => c.codigo === '000001');
 const ncms8 = Object.keys(dados.ncm).filter((c) => c.length === 8);
 const nbss9 = Object.keys(dados.nbs).filter((c) => c.length === 9);
 
@@ -21,7 +22,10 @@ async function apiCalc(item, data, aliquotas) {
   if (!r.ok || (o.erros && o.erros.length)) return { erro: (o.erros || [j]).map((e) => e.code || e.title).join(',') };
   const g = o.tribCalc?.IBSCBS?.gIBSCBS;
   if (!g) return { semGrupo: true };
-  return { v: [g.gCBS?.vCBS, g.gIBSUF?.vIBSUF, g.gIBSMun?.vIBSMun].map(Number) };
+  const res = { v: [g.gCBS?.vCBS, g.gIBSUF?.vIBSUF, g.gIBSMun?.vIBSMun].map(Number) };
+  const reg = g.gTribRegular;
+  if (reg) res.reg = [reg.vTribRegCBS, reg.vTribRegIBSUF, reg.vTribRegIBSMun].map(Number);
+  return res;
 }
 
 const GRAVAR = process.argv.includes('--gravar');
@@ -44,8 +48,12 @@ function marcar(classe, motivo) { if (!marcadas.has(classe.codigo)) marcadas.set
       const codigo = (anexo && lista.find((c) => { const a = Calc.aplicavel(anexo, c, DATA); return a.temAnexo && a.valido; })) || (tipo === 'ncm' ? '84713012' : '122011200');
       for (const cen of cenarios) {
         const valor = 1234.57;
-        const meu = Calc.calcular({ classe, tipo, codigo, valor, data: cen.data, aliquotas: cen.aliquotas }, dados);
-        const deles = await apiCalc({ numero: 1, [tipo]: codigo, cst: classe.cst, cClassTrib: classe.codigo, baseCalculo: valor, quantidade: 1, unidade: 'UN' }, cen.data, cen.aliquotas);
+        // Suspensões e ZFM/ALC: informa a tributação regular padrão (000 / 000001), como a tela faz por padrão
+        const regular = classe.exigeTribRegular ? REGULAR_PADRAO : undefined;
+        const meu = Calc.calcular({ classe, tipo, codigo, valor, data: cen.data, aliquotas: cen.aliquotas, regular }, dados);
+        const item = { numero: 1, [tipo]: codigo, cst: classe.cst, cClassTrib: classe.codigo, baseCalculo: valor, quantidade: 1, unidade: 'UN' };
+        if (regular) item.tributacaoRegular = { cst: regular.cst, cClassTrib: regular.codigo };
+        const deles = await apiCalc(item, cen.data, cen.aliquotas);
         const id = `${classe.codigo} ${tipo}=${codigo} ${cen.data}`;
         if (!classe.suportado) { naoSuportadas.push(`${id} api=${JSON.stringify(deles)}`); continue; }
         if (meu.erros) {
@@ -55,8 +63,9 @@ function marcar(classe, motivo) { if (!marcadas.has(classe.codigo)) marcadas.set
         if (deles.semGrupo && meu.semDestaque) { ok++; continue; }
         if (deles.erro || deles.semGrupo || meu.semDestaque) {
           marcar(classe, MOTIVOS[deles.erro] || (deles.erro ? `a API oficial pede dados adicionais (${deles.erro})` : 'tratamento diferente do padrão')); falhas.push(`${id}: navegador calculou ${meu.tributos.map((t) => t.valor)} e a API respondeu ${JSON.stringify(deles)}`); continue; }
-        const igual = meu.tributos.every((t, i) => Math.abs(t.valor - deles.v[i]) < 0.005);
-        if (igual) ok++; else marcar(classe, 'alíquota específica do setor'), falhas.push(`${id}: navegador ${meu.tributos.map((t) => t.valor)} x API ${deles.v}`);
+        const igual = meu.tributos.every((t, i) => Math.abs(t.valor - deles.v[i]) < 0.005)
+          && (!regular || (deles.reg && meu.tributos.every((t, i) => Math.abs(t.regular.valor - deles.reg[i]) < 0.005)));
+        if (igual) ok++; else marcar(classe, regular ? 'tributação regular não reproduzida' : 'alíquota específica do setor'), falhas.push(`${id}: navegador ${meu.tributos.map((t) => t.valor)}${regular ? ` reg ${meu.tributos.map((t) => t.regular.valor)}` : ''} x API ${deles.v}${deles.reg ? ` reg ${deles.reg}` : ''}`);
       }
     }
   }

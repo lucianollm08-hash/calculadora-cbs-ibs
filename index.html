@@ -185,6 +185,11 @@
       <div class="caixa aviso" id="avisoSetor" hidden></div>
       <div class="contagem" id="contagem"></div>
       <div class="info" id="infoClass"></div>
+      <div id="blocoRegular" hidden>
+        <label class="sub-rotulo" for="classRegular">Tributação regular (a que valeria sem a suspensão)</label>
+        <select id="classRegular"></select>
+        <div class="dica">Exigida pela nota fiscal (grupo gTribRegular). Na dúvida, use 000001, tributação integral.</div>
+      </div>
 
       <div class="linha">
         <div>
@@ -517,6 +522,23 @@ function renderClasses() {
 }
 
 function classeAtual() { return classes.find((x) => x.codigo === $('classTrib').value); }
+
+// Suspensões (CST 550) e operações com ZFM/ALC exigem a classificação da tributação regular
+const podeSerRegular = (x) => x.suportado && x.destacaCbsIbs && !x.exigeTribRegular && !x.incompativelSuspensao;
+function mostrarRegular(c) {
+  const exige = !!(c && c.exigeTribRegular && c.suportado);
+  $('blocoRegular').hidden = !exige;
+  if (!exige) return;
+  // Só as classificações que valem para o código digitado (anexo da LC 214/2025)
+  const sel = $('classRegular');
+  const atual = sel.value || '000001';
+  const cod = codigoAtual();
+  const vale = (x) => cod.length !== (tipo === 'ncm' ? 8 : 9) || Calc.aplicavel(tipo === 'ncm' ? x.anexoNcm : x.anexoNbs, cod, $('data').value).valido;
+  const lista = classes.filter((x) => podeSerRegular(x) && vale(x));
+  sel.innerHTML = lista.map((x) => `<option value="${x.codigo}" title="${esc(x.descricao)}">${x.codigo} · ${esc(x.descricao)}</option>`).join('');
+  sel.value = lista.some((x) => x.codigo === atual) ? atual : '000001';
+}
+function classeRegular() { return $('blocoRegular').hidden ? undefined : classes.find((x) => x.codigo === $('classRegular').value); }
 function codigoAtual() { return $('codigo').value.replace(/\D/g, ''); }
 
 function mostrarClasse() {
@@ -530,6 +552,7 @@ function mostrarClasse() {
   const st = setorial(c, codigoCompleto());
   $('avisoSetor').innerHTML = st ? `<b>Atenção:</b> ${esc(st.aviso)}` : '';
   $('avisoSetor').hidden = !st;
+  mostrarRegular(c);
   if (!c.suportado) { info.className = 'info ruim'; info.textContent = `Não calculada nesta versão: ${c.motivo || c.tratamento}.`; return; }
   const cod = codigoAtual();
   const tamanho = tipo === 'ncm' ? 8 : 9;
@@ -567,7 +590,7 @@ function calcular(ev) {
   ev.preventDefault();
   $('erroForm').innerHTML = '';
   const c = classeAtual();
-  const entrada = { classe: c, tipo, codigo: codigoAtual(), valor: num($('valor').value), data: $('data').value };
+  const entrada = { classe: c, tipo, codigo: codigoAtual(), valor: num($('valor').value), data: $('data').value, regular: classeRegular() };
   if (!Calc.temReferencia(dados.meta, entrada.data)) entrada.aliquotas = { cbs: num($('aCbs').value), ibsUf: num($('aUf').value), ibsMun: num($('aMun').value) };
   const r = Calc.calcular(entrada, dados);
   if (r.erros) {
@@ -578,6 +601,30 @@ function calcular(ev) {
   if (r.semDestaque) {
     $('resultado').innerHTML = `<div class="total"><div class="rotulo">Tributos sobre ${brl(r.base)}</div><div class="valor">${brl(0)}</div>
       <div class="rotulo">${esc(c.cstDescricao)}: não há destaque de CBS nem de IBS nesta operação.</div><div class="totais" id="totais"></div></div>${rodape}<div id="comparativo"></div>`;
+    iniciarComparativo(entrada, c, r);
+    return;
+  }
+  if (r.regular) {
+    const rg = r.regular.classe;
+    const linhasReg = r.tributos.map((t) => `<tr><td>${t.nome}</td><td>${pct(t.regular.aliquota)}</td><td>${t.regular.reducao ? pct(t.regular.reducao) : '—'}</td><td>${pct(t.regular.efetiva)}</td><td>${brl(t.regular.valor)}</td></tr>`).join('');
+    const memoriaReg = r.tributos.map((t) => `<p><b>${t.nome}:</b> base ${brl(r.base)} × ${pct(t.regular.efetiva)} = ${brl(t.regular.valor)} (informativo; devido ${brl(0)}).</p>`).join('');
+    $('resultado').innerHTML = `
+      <div class="total">
+        <div class="rotulo">Tributos devidos sobre ${brl(entrada.valor)} (CBS + IBS)</div>
+        <div class="valor">${brl(0)}</div>
+        <div class="rotulo">${esc(c.cstDescricao)}: nada é cobrado nesta operação. Sem a ${esc(c.cstDescricao.toLowerCase())}, seriam ${brl(r.regular.total)}.</div>
+        <div class="totais" id="totais"></div>
+      </div>
+      ${r.simulado ? '<div class="caixa aviso"><b>Estimativa:</b> ainda não há alíquota oficial para essa data. O cálculo usa as alíquotas do quadro acima.</div>' : ''}
+      <p class="info">Tributação regular informada na nota (grupo gTribRegular): CST ${esc(rg.cst)} · ${esc(rg.codigo)} · ${esc(rg.descricao)}</p>
+      <table>
+        <thead><tr><th>Tributo regular</th><th>Alíquota</th><th>Redução</th><th>Efetiva</th><th>Valor</th></tr></thead>
+        <tbody>${linhasReg}</tbody>
+        <tfoot><tr><td>Total que seria devido</td><td></td><td></td><td></td><td>${brl(r.regular.total)}</td></tr></tfoot>
+      </table>
+      ${rodape}
+      <details><summary>Memória de cálculo</summary>${memoriaReg}</details>
+      <div id="comparativo"></div>`;
     iniciarComparativo(entrada, c, r);
     return;
   }
